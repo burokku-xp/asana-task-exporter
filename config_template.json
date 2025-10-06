@@ -1,0 +1,26 @@
+{
+  "asana": {
+    "access_token": "",
+    "selected_project_id": "",
+    "selected_project_name": ""
+  },
+  "export": {
+    "default_date_range": 30,
+    "selected_fields": [
+      "name",
+      "created_at",
+      "assignee",
+      "completed",
+      "due_date"
+    ],
+    "output_directory": ""
+  },
+  "ui": {
+    "window_size": "800x600",
+    "last_export_path": ""
+  },
+  "logging": {
+    "level": "INFO",
+    "log_directory": ""
+  }
+}

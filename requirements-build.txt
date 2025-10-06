@@ -1,0 +1,23 @@
+# Build requirements for PyInstaller
+# 要件 7.1, 7.2: exe ファイル化に必要な依存関係
+
+# Core application dependencies
+requests>=2.31.0
+openpyxl>=3.1.2
+cryptography>=41.0.0
+certifi>=2023.0.0
+
+# Build tools - Python 3.13 対応
+pyinstaller>=6.11.0
+
+# Additional dependencies that might be needed for PyInstaller
+# (these are often auto-detected but explicit inclusion ensures reliability)
+altgraph>=0.17.3
+pefile>=2023.2.7
+pyinstaller-hooks-contrib>=2023.6
+
+# Windows-specific dependencies (ignored on other platforms)
+pywin32-ctypes>=0.2.2; sys_platform == "win32"
+
+# System monitoring (used by debug_info.py)
+psutil>=5.9.0
