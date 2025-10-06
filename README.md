@@ -14,7 +14,9 @@ AsanaのタスクをExcelファイルにエクスポートするWindowsアプリ
 
 最新版のexeファイルをダウンロード:
 
-📥 **[AsanaTaskExporter.exe をダウンロード](https://github.com/YOUR_USERNAME/YOUR_REPO/raw/main/dist/AsanaTaskExporter.exe)**
+📥 **[AsanaTaskExporter.exe をダウンロード](https://github.com/burokku-xp/asana-task-exporter/releases/latest/download/AsanaTaskExporter.exe)**
+
+または [リリースページ](https://github.com/burokku-xp/asana-task-exporter/releases) から直接ダウンロード
 
 > ⚠️ Windowsの警告が表示される場合は「詳細情報」→「実行」をクリックしてください
 
@@ -113,8 +115,8 @@ AsanaのタスクをExcelファイルにエクスポートするWindowsアプリ
 #### セットアップ
 ```bash
 # リポジトリをクローン
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git
-cd AsanaExcel取得ツール
+git clone https://github.com/burokku-xp/asana-task-exporter.git
+cd asana-task-exporter
 
 # 仮想環境を作成
 python -m venv venv
@@ -153,7 +155,7 @@ MIT License - 詳細は [LICENSE.txt](LICENSE.txt) を参照
 
 ## 貢献
 
-プルリクエストを歓迎します！バグ報告や機能リクエストは [Issues](https://github.com/YOUR_USERNAME/YOUR_REPO/issues) で受け付けています。
+プルリクエストを歓迎します！バグ報告や機能リクエストは [Issues](https://github.com/burokku-xp/asana-task-exporter/issues) で受け付けています。
 
 ## 更新履歴
 
