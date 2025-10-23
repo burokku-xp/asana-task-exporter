@@ -353,7 +353,7 @@ class AsanaClient:
     @handle_errors("プロジェクト一覧取得", reraise=True)
     def get_projects(self, workspace_id: Optional[str] = None) -> List[Project]:
         """
-        アクセス可能なプロジェクト一覧を取得
+        アクセス可能なプロジェクト一覧を取得（全件）
 
         Args:
             workspace_id: ワークスペースID（指定しない場合は最初のワークスペースを使用）
@@ -377,34 +377,57 @@ class AsanaClient:
 
                 self.logger.info("プロジェクト一覧を取得しています...")
 
-                response = self._make_request('GET', 'projects', params={
-                    'workspace': workspace_id,
-                    'limit': 100,  # 一度に取得する最大数
-                    'opt_fields': 'name'
-                })
-                
-                perf.log_checkpoint("API レスポンス受信")
-                
                 projects = []
                 failed_count = 0
-                
-                for project_data in response.get('data', []):
-                    try:
-                        project = Project(
-                            id=str(project_data['gid']),
-                            name=project_data['name']
-                        )
-                        projects.append(project)
-                        
-                        self.logger.debug(f"プロジェクト解析成功: {project.name} (ID: {project.id})")
-                        
-                    except (KeyError, ValueError) as e:
-                        failed_count += 1
-                        self.logger.warning(f"プロジェクトデータの解析に失敗: {e} - データ: {project_data}")
-                        continue
-                
-                perf.log_checkpoint("データ解析完了")
-                
+                offset = None
+                page_count = 0
+
+                # ページネーション処理：すべてのプロジェクトを取得
+                while True:
+                    page_count += 1
+                    self.logger.debug(f"プロジェクト一覧取得 - ページ {page_count}")
+
+                    params = {
+                        'workspace': workspace_id,
+                        'limit': 100,  # 一度に取得する最大数
+                        'opt_fields': 'name'
+                    }
+
+                    if offset:
+                        params['offset'] = offset
+
+                    response = self._make_request('GET', 'projects', params=params)
+
+                    if page_count == 1:
+                        perf.log_checkpoint("初回APIレスポンス受信")
+
+                    # データを解析
+                    for project_data in response.get('data', []):
+                        try:
+                            project = Project(
+                                id=str(project_data['gid']),
+                                name=project_data['name']
+                            )
+                            projects.append(project)
+
+                            self.logger.debug(f"プロジェクト解析成功: {project.name} (ID: {project.id})")
+
+                        except (KeyError, ValueError) as e:
+                            failed_count += 1
+                            self.logger.warning(f"プロジェクトデータの解析に失敗: {e} - データ: {project_data}")
+                            continue
+
+                    # 次のページがあるかチェック
+                    next_page = response.get('next_page')
+                    if next_page and next_page.get('offset'):
+                        offset = next_page['offset']
+                        self.logger.debug(f"次のページを取得します（offset: {offset}）")
+                    else:
+                        # 次のページがない場合は終了
+                        break
+
+                perf.log_checkpoint("全データ取得・解析完了")
+
                 # パフォーマンスメトリクスを記録
                 duration = (perf.end_time.timestamp() - perf.start_time.timestamp()) if perf.end_time else 0
                 log_performance_metrics(
@@ -413,66 +436,91 @@ class AsanaClient:
                     additional_metrics={
                         'projects_count': len(projects),
                         'failed_parsing_count': failed_count,
-                        'api_response_size': len(str(response))
+                        'page_count': page_count
                     }
                 )
-                
-                self.logger.info(f"{len(projects)}個のプロジェクトを取得しました")
+
+                self.logger.info(f"{len(projects)}個のプロジェクトを取得しました（{page_count}ページ）")
                 if failed_count > 0:
                     self.logger.warning(f"{failed_count}個のプロジェクトデータの解析に失敗しました")
-                
+
                 return projects
-                
+
             except Exception as e:
                 self.logger.error(f"プロジェクト一覧の取得に失敗: {e}")
                 raise
     
     def get_project_tasks(self, project_id: str, start_date: date, end_date: date) -> List[Task]:
         """
-        指定されたプロジェクトから期間内のタスクを取得
-        
+        指定されたプロジェクトから期間内のタスクを取得（全件）
+
         Args:
             project_id: プロジェクト ID
             start_date: 開始日
             end_date: 終了日
-            
+
         Returns:
             タスクのリスト
-            
+
         Raises:
             AsanaAPIError: API エラーが発生した場合
         """
         if not project_id:
             raise ValueError("project_id は必須です")
-        
+
         if start_date > end_date:
             raise ValueError("開始日は終了日より前である必要があります")
-        
+
         try:
             self.logger.info(f"プロジェクト {project_id} のタスクを取得しています...")
-            
-            # タスク一覧を取得（カスタムフィールドを含む）
-            response = self._make_request('GET', f'projects/{project_id}/tasks', params={
-                'limit': 100,
-                'opt_fields': 'name,created_at,modified_at,completed,assignee.name,due_date,notes,custom_fields.name,custom_fields.type,custom_fields.text_value,custom_fields.number_value,custom_fields.enum_value.name,custom_fields.multi_enum_values.name,custom_fields.date_value,custom_fields.people_value.name,custom_fields.display_value'
-            })
-            
+
             tasks = []
-            for task_data in response.get('data', []):
-                try:
-                    task = self._parse_task_data(task_data)
-                    
-                    # 日付範囲でフィルタリング
-                    if task.is_in_date_range(start_date, end_date):
-                        tasks.append(task)
-                        
-                except (KeyError, ValueError) as e:
-                    self.logger.warning(f"タスクデータの解析に失敗: {e}")
-                    continue
-            
-            self.logger.info(f"{len(tasks)}個のタスクを取得しました")
+            all_tasks_count = 0
+            offset = None
+            page_count = 0
+
+            # ページネーション処理：すべてのタスクを取得
+            while True:
+                page_count += 1
+                self.logger.debug(f"タスク一覧取得 - ページ {page_count}")
+
+                params = {
+                    'limit': 100,
+                    'opt_fields': 'name,created_at,modified_at,completed,assignee.name,due_date,notes,custom_fields.name,custom_fields.type,custom_fields.text_value,custom_fields.number_value,custom_fields.enum_value.name,custom_fields.multi_enum_values.name,custom_fields.date_value,custom_fields.people_value.name,custom_fields.display_value'
+                }
+
+                if offset:
+                    params['offset'] = offset
+
+                # タスク一覧を取得（カスタムフィールドを含む）
+                response = self._make_request('GET', f'projects/{project_id}/tasks', params=params)
+
+                # データを解析
+                for task_data in response.get('data', []):
+                    all_tasks_count += 1
+                    try:
+                        task = self._parse_task_data(task_data)
+
+                        # 日付範囲でフィルタリング
+                        if task.is_in_date_range(start_date, end_date):
+                            tasks.append(task)
+
+                    except (KeyError, ValueError) as e:
+                        self.logger.warning(f"タスクデータの解析に失敗: {e}")
+                        continue
+
+                # 次のページがあるかチェック
+                next_page = response.get('next_page')
+                if next_page and next_page.get('offset'):
+                    offset = next_page['offset']
+                    self.logger.debug(f"次のページを取得します（offset: {offset}）")
+                else:
+                    # 次のページがない場合は終了
+                    break
+
+            self.logger.info(f"全{all_tasks_count}個のタスクから、期間内の{len(tasks)}個を取得しました（{page_count}ページ）")
             return tasks
-            
+
         except Exception as e:
             self.logger.error(f"タスク一覧の取得に失敗: {e}")
             raise
